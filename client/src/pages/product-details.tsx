@@ -12,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ProductDetails: React.FC = () => {
-  const { slug } = useParams();
+  const params = useParams<{ slug: string }>();
+  const slug = params?.slug;
+
   const { addItem } = useCart();
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
@@ -26,6 +28,7 @@ const ProductDetails: React.FC = () => {
     error: productError 
   } = useQuery<Product>({
     queryKey: [`/api/products/${slug}`],
+    enabled: !!slug,
   });
 
   // Fetch product reviews

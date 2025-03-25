@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 const HeroSection: React.FC = () => {
   return (
-    <section className="bg-gradient-to-r from-primary-700 to-primary-500 text-white py-10 md:py-16">
+    <section className="bg-gradient-to-r from-primary-700 to-primary-500 text-primary-foreground py-10 md:py-16">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 md:pr-8">
@@ -16,7 +16,7 @@ const HeroSection: React.FC = () => {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/products">
-                <Button className="bg-white text-primary-700 font-medium px-6 py-6 rounded-lg hover:bg-gray-100 transition shadow-md">
+                <Button className="bg-white text-primary-1000 font-medium px-6 py-6 rounded-lg hover:bg-gray-100 transition shadow-md">
                   Shop Now
                 </Button>
               </Link>

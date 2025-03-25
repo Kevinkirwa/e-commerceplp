@@ -27,7 +27,12 @@ import { useAuth } from "@/lib/context/AuthContext";
 import Chat from "@/components/chat/Chat"; // Import the Chat component
 
 
-function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  roles?: string[];
+}
+
+function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) {
@@ -44,10 +49,10 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} exact />
+      <Route path="/">{() => <Home />}</Route>
       <Route path="/products/:slug" component={ProductDetails} />
-      <Route path="/products" component={Products} />
-      <Route path="/cart" component={Cart} />
+      <Route path="/products">{() => <Products />}</Route>
+      <Route path="/cart">{() => <Cart />}</Route>
       <Route path="/checkout">
         {() => (
           <ProtectedRoute>
@@ -55,8 +60,8 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
+      <Route path="/login">{() => <Login />}</Route>
+      <Route path="/register">{() => <Register />}</Route>
 
       {/* User Routes */}
       <Route path="/user/dashboard">
@@ -117,7 +122,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      <Route path="/vendor/pending-approval" component={VendorPendingApproval} />
+      <Route path="/vendor/pending-approval">{() => <VendorPendingApproval />}</Route>
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard">
@@ -150,7 +155,7 @@ function Router() {
         )}
       </Route>
 
-      <Route component={NotFound} />
+      <Route>{() => <NotFound />}</Route>
     </Switch>
   );
 }

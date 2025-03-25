@@ -20,7 +20,8 @@ const Products: React.FC = () => {
 
   // Parse query parameters from URL
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1]);
+    const [, queryString] = location.split('?');
+    const params = new URLSearchParams(queryString);
     
     const categoryId = params.get("categoryId");
     if (categoryId) {

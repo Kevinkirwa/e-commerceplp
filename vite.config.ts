@@ -9,6 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
+  server: {
+    hmr: {
+      overlay: true,
+      clientPort: 443,
+      host: '0.0.0.0',
+    },
+  },
   plugins: [
     react(),
     runtimeErrorOverlay(),

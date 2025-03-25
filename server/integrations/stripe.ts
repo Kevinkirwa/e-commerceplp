@@ -1,5 +1,7 @@
 import Stripe from 'stripe';
 import { log } from '../vite';
+import dotenv from "dotenv";
+dotenv.config();
 
 if (!process.env.STRIPE_SECRET_KEY) {
   log('Missing required Stripe secret: STRIPE_SECRET_KEY', 'stripe');

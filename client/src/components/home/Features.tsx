@@ -16,7 +16,7 @@ const Features: React.FC = () => {
               <TruckIcon />
             </div>
             <h3 className="font-semibold text-lg mb-2">Fast Delivery</h3>
-            <p className="text-gray-600 text-sm">Free shipping on orders over $50</p>
+            <p className="text-gray-600 text-sm">Free on orders over $50</p>
           </div>
           
           <div className="bg-white rounded-lg p-6 text-center">

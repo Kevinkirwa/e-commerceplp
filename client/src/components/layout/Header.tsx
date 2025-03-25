@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const Header: React.FC = () => {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const { totalItems } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,9 +26,8 @@ const Header: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Implement search functionality
     if (searchQuery.trim()) {
-      window.location.href = `/products?search=${encodeURIComponent(searchQuery)}`;
+      setLocation(`/products?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 
@@ -54,7 +53,7 @@ const Header: React.FC = () => {
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       {/* Top announcement bar */}
-      <div className="bg-primary-600 text-white text-center text-sm py-2 px-4">
+      <div className="bg-primary text-white text-center text-sm py-2 px-4">
         <p className="font-accent">Free shipping on orders over $50! Use code: FREESHIP50</p>
       </div>
       
@@ -67,7 +66,7 @@ const Header: React.FC = () => {
               <span className="text-primary-600 text-3xl">
                 <ShoppingBagIcon />
               </span>
-              <span className="font-bold text-xl ml-1 text-gray-900 font-accent">ShopVerse</span>
+              <span className="font-bold text-xl ml-1 text-gray-900 font-accent">SopVerse</span>
             </Link>
           </div>
           
@@ -185,7 +184,7 @@ const Header: React.FC = () => {
                 href="/" 
                 className={`whitespace-nowrap hover:text-primary-600 flex items-center ${location === "/" ? "text-primary-600" : ""}`}
               >
-                <span className="mr-1"><HomeIcon /></span> Home
+                <span className="mr-1"><HomeIcon /></span> Hom
               </Link>
             </li>
             <li>

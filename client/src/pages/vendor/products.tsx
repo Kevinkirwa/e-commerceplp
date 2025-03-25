@@ -175,7 +175,8 @@ const VendorProducts: React.FC = () => {
   const handleAddImageUrl = () => {
     if (!newImageUrl) return;
     
-    if (!newImageUrl.match(/^https?:\/\/.+$/)) {
+    const urlPattern = /^https?:\/\/.+$/;
+    if (!urlPattern.test(newImageUrl)) {
       toast({
         title: "Invalid URL",
         description: "Please enter a valid image URL starting with http:// or https://",
