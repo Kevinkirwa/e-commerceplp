@@ -9,6 +9,7 @@ import {
   insertReviewSchema, insertWishlistSchema
 } from "@shared/schema";
 import { z } from "zod";
+import paymentRoutes from "./payments";
 
 // Add user object to Request type
 declare global {
@@ -35,7 +36,7 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   }
   
   try {
-    const decoded = jwt.jwt.verify(token, JWT_SECRET) as { id: number, role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: number, role: string };
     req.user = decoded;
     next();
   } catch (error) {
@@ -702,6 +703,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to remove from wishlist" });
     }
   });
+  
+  // ==== Payment Routes ====
+  app.use("/api/payments", paymentRoutes);
   
   // Create HTTP server
   const httpServer = createServer(app);
