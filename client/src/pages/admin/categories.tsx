@@ -131,7 +131,7 @@ const AdminCategories: React.FC = () => {
     editForm.reset({
       name: category.name,
       slug: category.slug,
-      description: category.description,
+      description: category.description || "", // Handle null description
       image: category.image || ""
     });
     setSelectedCategory(category);

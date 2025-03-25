@@ -26,7 +26,8 @@ import {
   TrendingUp, 
   Package, 
   CheckCircle, 
-  XCircle 
+  XCircle,
+  FolderIcon
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -117,7 +118,7 @@ const AdminDashboard: React.FC = () => {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-gray-500">Platform overview and analytics</p>
         </div>
-        <div className="mt-4 md:mt-0 flex gap-2">
+        <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
           <Link href="/admin/vendors">
             <Button variant="outline">
               <Store className="mr-2 h-4 w-4" />
@@ -125,9 +126,15 @@ const AdminDashboard: React.FC = () => {
             </Button>
           </Link>
           <Link href="/admin/products">
-            <Button>
+            <Button variant="outline">
               <ShoppingBag className="mr-2 h-4 w-4" />
               Manage Products
+            </Button>
+          </Link>
+          <Link href="/admin/categories">
+            <Button>
+              <FolderIcon className="mr-2 h-4 w-4" />
+              Manage Categories
             </Button>
           </Link>
         </div>
