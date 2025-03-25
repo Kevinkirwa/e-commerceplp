@@ -13,6 +13,7 @@ import Register from "@/pages/auth/register";
 import UserDashboard from "@/pages/user/dashboard";
 import UserOrders from "@/pages/user/orders";
 import UserWishlist from "@/pages/user/wishlist";
+import UserProfile from "@/pages/user/profile";
 import VendorDashboard from "@/pages/vendor/dashboard";
 import VendorProducts from "@/pages/vendor/products";
 import VendorOrders from "@/pages/vendor/orders";
@@ -74,6 +75,13 @@ function Router() {
         {() => (
           <ProtectedRoute roles={["customer", "vendor", "admin"]}>
             <UserWishlist />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/user/profile">
+        {() => (
+          <ProtectedRoute roles={["customer", "vendor", "admin"]}>
+            <UserProfile />
           </ProtectedRoute>
         )}
       </Route>
