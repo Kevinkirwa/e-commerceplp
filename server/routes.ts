@@ -1,8 +1,8 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { hash, compare } from "bcrypt";
-import { sign, verify } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { 
   insertUserSchema, insertProductSchema, insertCategorySchema, 
   insertVendorSchema, insertOrderSchema, insertOrderItemSchema,
@@ -27,7 +27,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "shopverse_jwt_secret";
 const JWT_EXPIRES_IN = '7d';
 
 // Middleware to check if user is authenticated
-const isAuthenticated = (req: Request, res: Response, next: Function) => {
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
@@ -35,7 +35,7 @@ const isAuthenticated = (req: Request, res: Response, next: Function) => {
   }
   
   try {
-    const decoded = verify(token, JWT_SECRET) as { id: number, role: string };
+    const decoded = jwt.jwt.verify(token, JWT_SECRET) as { id: number, role: string };
     req.user = decoded;
     next();
   } catch (error) {
@@ -45,7 +45,7 @@ const isAuthenticated = (req: Request, res: Response, next: Function) => {
 
 // Middleware to check if user has required role
 const hasRole = (roles: string[]) => {
-  return (req: Request, res: Response, next: Function) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ message: "Authentication required" });
     }
@@ -59,18 +59,6 @@ const hasRole = (roles: string[]) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Add user object to Request type
-  declare global {
-    namespace Express {
-      interface Request {
-        user?: {
-          id: number;
-          role: string;
-        };
-      }
-    }
-  }
-  
   // ==== Auth Routes ====
   
   // Register
@@ -95,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Generate token
-      const token = sign(
+      const token = jwt.sign(
         { id: user.id, role: user.role },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -138,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate token
-      const token = sign(
+      const token = jwt.sign(
         { id: user.id, role: user.role },
         JWT_SECRET,
         { expiresIn: JWT_EXPIRES_IN }
@@ -533,38 +521,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get order items
       const items = await storage.getOrderItems(id);
       
-      res.json({ ...order, items });
+      res.json({
+        ...order,
+        items
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to get order" });
     }
   });
   
-  // Create order (authenticated users)
+  // Create order
   app.post("/api/orders", isAuthenticated, async (req, res) => {
     try {
       const orderData = insertOrderSchema.parse({
         ...req.body,
-        userId: req.user!.id
+        userId: req.user!.id,
+        status: "pending",
+        paymentStatus: "pending"
       });
       
       const order = await storage.createOrder(orderData);
       
       // Create order items
-      if (req.body.items && Array.isArray(req.body.items)) {
-        for (const item of req.body.items) {
-          const orderItemData = insertOrderItemSchema.parse({
-            ...item,
-            orderId: order.id
-          });
-          
-          await storage.createOrderItem(orderItemData);
-        }
+      const { items } = req.body;
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Order items are required" });
       }
       
-      // Get complete order with items
-      const items = await storage.getOrderItems(order.id);
+      const orderItems = await Promise.all(
+        items.map(async (item: any) => {
+          const orderItemData = insertOrderItemSchema.parse({
+            ...item,
+            orderId: order.id,
+            status: "pending"
+          });
+          
+          return storage.createOrderItem(orderItemData);
+        })
+      );
       
-      res.status(201).json({ ...order, items });
+      res.status(201).json({
+        ...order,
+        items: orderItems
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors });
@@ -573,73 +572,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Update order status (admin or vendor)
-  app.patch("/api/orders/:id", isAuthenticated, hasRole(["admin", "vendor"]), async (req, res) => {
+  // Update order (admin only)
+  app.patch("/api/orders/:id", isAuthenticated, hasRole(["admin"]), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const order = await storage.getOrder(id);
+      const orderData = insertOrderSchema.partial().parse(req.body);
       
-      if (!order) {
+      const updatedOrder = await storage.updateOrder(id, orderData);
+      if (!updatedOrder) {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Vendors can only update their items' status
-      if (req.user!.role === "vendor") {
-        const vendor = await storage.getVendorByUserId(req.user!.id);
-        if (!vendor) {
-          return res.status(400).json({ message: "Vendor account not found" });
-        }
-        
-        // Get vendor's items in this order
-        const orderItems = await storage.getOrderItems(id);
-        const vendorItems = orderItems.filter(item => item.vendorId === vendor.id);
-        
-        if (vendorItems.length === 0) {
-          return res.status(403).json({ message: "No items from this vendor in this order" });
-        }
-        
-        // Update status of vendor's items
-        if (req.body.status) {
-          for (const item of vendorItems) {
-            await storage.updateOrderItem(item.id, { status: req.body.status });
-          }
-        }
-        
-        // Get updated items
-        const updatedItems = await storage.getOrderItems(id);
-        
-        // Check if all items have the same status, update order status accordingly
-        const allItemsStatus = updatedItems.every(item => item.status === updatedItems[0].status);
-        if (allItemsStatus) {
-          await storage.updateOrder(id, { status: updatedItems[0].status });
-        }
-        
-        const updatedOrder = await storage.getOrder(id);
-        res.json({ ...updatedOrder, items: updatedItems });
-      } 
-      // Admins can update any order
-      else {
-        const orderData = insertOrderSchema.partial().parse(req.body);
-        const updatedOrder = await storage.updateOrder(id, orderData);
-        
-        // Get order items
-        const items = await storage.getOrderItems(id);
-        
-        // If updating order status, update all items status too
-        if (req.body.status) {
-          for (const item of items) {
-            await storage.updateOrderItem(item.id, { status: req.body.status });
-          }
-        }
-        
-        const updatedItems = await storage.getOrderItems(id);
-        res.json({ ...updatedOrder, items: updatedItems });
-      }
+      res.json(updatedOrder);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors });
       }
       res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+  
+  // Update order item status (vendor or admin)
+  app.patch("/api/order-items/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const orderItem = await storage.updateOrderItem(id, { status });
+      if (!orderItem) {
+        return res.status(404).json({ message: "Order item not found" });
+      }
+      
+      res.json(orderItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update order item" });
     }
   });
   
@@ -650,6 +620,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const productId = parseInt(req.params.id);
       const reviews = await storage.getProductReviews(productId);
+      res.json(reviews);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get reviews" });
+    }
+  });
+  
+  // Get vendor reviews
+  app.get("/api/vendors/:id/reviews", async (req, res) => {
+    try {
+      const vendorId = parseInt(req.params.id);
+      const reviews = await storage.getVendorReviews(vendorId);
       res.json(reviews);
     } catch (error) {
       res.status(500).json({ message: "Failed to get reviews" });
@@ -679,45 +660,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user wishlist
   app.get("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const wishlistItems = await storage.getUserWishlist(req.user!.id);
-      
-      // Get product details for each wishlist item
-      const wishlistWithProducts = await Promise.all(
-        wishlistItems.map(async (item) => {
-          const product = await storage.getProduct(item.productId);
-          return { ...item, product };
-        })
-      );
-      
-      res.json(wishlistWithProducts);
+      const wishlist = await storage.getUserWishlist(req.user!.id);
+      res.json(wishlist);
     } catch (error) {
       res.status(500).json({ message: "Failed to get wishlist" });
     }
   });
   
-  // Add to wishlist
+  // Add product to wishlist
   app.post("/api/wishlist", isAuthenticated, async (req, res) => {
     try {
-      const wishlistData = insertWishlistSchema.parse({
+      const { productId } = req.body;
+      
+      if (!productId) {
+        return res.status(400).json({ message: "Product ID is required" });
+      }
+      
+      const wishlistItem = await storage.addToWishlist({
         userId: req.user!.id,
-        productId: req.body.productId
+        productId
       });
       
-      const wishlist = await storage.addToWishlist(wishlistData);
-      
-      // Get product details
-      const product = await storage.getProduct(wishlist.productId);
-      
-      res.status(201).json({ ...wishlist, product });
+      res.status(201).json(wishlistItem);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: error.errors });
-      }
       res.status(500).json({ message: "Failed to add to wishlist" });
     }
   });
   
-  // Remove from wishlist
+  // Remove product from wishlist
   app.delete("/api/wishlist/:productId", isAuthenticated, async (req, res) => {
     try {
       const productId = parseInt(req.params.productId);
@@ -733,6 +703,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create HTTP server
   const httpServer = createServer(app);
+  
   return httpServer;
 }
