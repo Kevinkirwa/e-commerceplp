@@ -42,9 +42,9 @@ function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/products" component={Products} />
+      <Route path="/" component={Home} exact />
       <Route path="/products/:slug" component={ProductDetails} />
+      <Route path="/products" component={Products} />
       <Route path="/cart" component={Cart} />
       <Route path="/checkout">
         {() => (
