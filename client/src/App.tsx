@@ -24,7 +24,7 @@ import AdminVendors from "@/pages/admin/vendors";
 import AdminProducts from "@/pages/admin/products";
 import AdminCategories from "@/pages/admin/categories";
 import { useAuth } from "@/lib/context/AuthContext";
-import Chat from "@/components/Chat"; // Import the Chat component
+import Chat from "@/components/chat/Chat"; // Import the Chat component
 
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {

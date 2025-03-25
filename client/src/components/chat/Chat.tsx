@@ -85,9 +85,8 @@ export function Chat() {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Type your message..."
-              className="flex-1"
             />
-            <Button onClick={handleSend} size="icon">
+            <Button onClick={handleSend}>
               <Send className="h-4 w-4" />
             </Button>
           </div>
