@@ -24,18 +24,20 @@ import AdminVendors from "@/pages/admin/vendors";
 import AdminProducts from "@/pages/admin/products";
 import AdminCategories from "@/pages/admin/categories";
 import { useAuth } from "@/lib/context/AuthContext";
+import Chat from "@/components/Chat"; // Import the Chat component
+
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
   const { isAuthenticated, user } = useAuth();
-  
+
   if (!isAuthenticated) {
     return <Login />;
   }
-  
+
   if (roles && user && !roles.includes(user.role)) {
     return <NotFound />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -55,7 +57,7 @@ function Router() {
       </Route>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      
+
       {/* User Routes */}
       <Route path="/user/dashboard">
         {() => (
@@ -85,7 +87,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      
+
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard">
         {() => (
@@ -116,7 +118,7 @@ function Router() {
         )}
       </Route>
       <Route path="/vendor/pending-approval" component={VendorPendingApproval} />
-      
+
       {/* Admin Routes */}
       <Route path="/admin/dashboard">
         {() => (
@@ -139,7 +141,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      
+
       <Route path="/admin/categories">
         {() => (
           <ProtectedRoute roles={["admin"]}>
@@ -147,7 +149,7 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
-      
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -161,6 +163,7 @@ function App() {
         <Router />
       </main>
       <Footer />
+      <Chat /> {/* Added Chat component */}
       <Toaster />
     </div>
   );
