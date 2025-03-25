@@ -713,8 +713,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==== Payment Routes ====
   app.use("/api/payments", paymentRoutes);
   
-  // Create HTTP server
-  const httpServer = createServer(app);
-  
-  return httpServer;
+  // Handle 404 errors
+app.use((req, res, next) => {
+  if (!req.route) {
+    return res.status(404).json({ message: 'Route not found' });
+  }
+  next();
+});
+
+// Error handling middleware
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Error:', err);
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+  res.status(status).json({ message });
+});
+
+// Create HTTP server
+const httpServer = createServer(app);
+
+return httpServer;
 }
