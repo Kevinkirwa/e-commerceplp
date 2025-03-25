@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { storage } from './storage';
 import { initiateSTKPush, processCallback as processMpesaCallback, checkSTKPushStatus } from './integrations/mpesa';
 import { createOrder as createPayPalOrder, capturePayment, getOrderDetails } from './integrations/paypal';
+import { createPaymentIntent, getPaymentIntent, createRefund, constructEventFromPayload } from './integrations/stripe';
+import Stripe from 'stripe';
 import { log } from './vite';
 
 const router = Router();
@@ -266,6 +268,192 @@ router.get('/paypal/order/:paypalOrderId', async (req: Request, res: Response) =
   } catch (error) {
     log(`PayPal get order details error: ${error}`, 'payments');
     res.status(500).json({ error: 'Failed to get PayPal order details' });
+  }
+});
+
+/**
+ * Create Stripe payment intent
+ */
+router.post('/stripe/create-payment-intent', async (req: Request, res: Response) => {
+  try {
+    const { amount, orderId } = req.body;
+    
+    if (!amount || !orderId) {
+      return res.status(400).json({ error: 'Amount and order ID are required' });
+    }
+    
+    // Get order details
+    const order = await storage.getOrder(parseInt(orderId));
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Check if order belongs to the current user
+    if (req.user && order.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized access to this order' });
+    }
+    
+    // Create payment intent
+    const paymentIntent = await createPaymentIntent(
+      amount, 
+      'usd', 
+      { orderId: orderId.toString() }
+    );
+    
+    // Update order with Stripe details
+    await storage.updateOrder(parseInt(orderId), {
+      paymentDetails: order.paymentDetails ? {
+        ...order.paymentDetails,
+        stripe: {
+          paymentIntentId: paymentIntent.id,
+          status: paymentIntent.status,
+        }
+      } : {
+        stripe: {
+          paymentIntentId: paymentIntent.id,
+          status: paymentIntent.status,
+        }
+      }
+    });
+    
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    log(`Stripe create payment intent error: ${error}`, 'payments');
+    res.status(500).json({ error: 'Failed to create Stripe payment intent' });
+  }
+});
+
+/**
+ * Webhook for Stripe events
+ */
+router.post('/stripe/webhook', async (req: Request, res: Response) => {
+  try {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      log('Missing Stripe webhook secret', 'payments');
+      return res.status(500).json({ error: 'Stripe webhook secret is not configured' });
+    }
+    
+    const signature = req.headers['stripe-signature'] as string;
+    
+    if (!signature) {
+      return res.status(400).json({ error: 'Stripe signature is missing' });
+    }
+    
+    // Raw body is required for Stripe webhook verification
+    const event = constructEventFromPayload(
+      req.body,
+      signature,
+      webhookSecret
+    );
+    
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        // Find the order by payment intent ID
+        // This would require a method to find orders by payment intent ID
+        // For now, we'll extract the order ID from metadata if available
+        if (paymentIntent.metadata && paymentIntent.metadata.orderId) {
+          const orderId = parseInt(paymentIntent.metadata.orderId);
+          const order = await storage.getOrder(orderId);
+          
+          if (order) {
+            // Update order with completed status
+            await storage.updateOrder(orderId, {
+              paymentStatus: 'completed',
+              status: 'processing',
+              paymentDetails: order.paymentDetails ? {
+                ...order.paymentDetails,
+                stripe: {
+                  ...(order.paymentDetails.stripe || {}),
+                  paymentIntentId: paymentIntent.id,
+                  status: paymentIntent.status,
+                  completed: true,
+                }
+              } : {
+                stripe: {
+                  paymentIntentId: paymentIntent.id,
+                  status: paymentIntent.status,
+                  completed: true,
+                }
+              }
+            });
+            
+            log(`Stripe payment succeeded for order #${orderId}`, 'payments');
+          }
+        }
+        break;
+        
+      case 'payment_intent.payment_failed':
+        const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        if (failedPaymentIntent.metadata && failedPaymentIntent.metadata.orderId) {
+          const orderId = parseInt(failedPaymentIntent.metadata.orderId);
+          const order = await storage.getOrder(orderId);
+          
+          if (order) {
+            // Update order with failed status
+            await storage.updateOrder(orderId, {
+              paymentStatus: 'failed',
+              paymentDetails: order.paymentDetails ? {
+                ...order.paymentDetails,
+                stripe: {
+                  ...(order.paymentDetails.stripe || {}),
+                  paymentIntentId: failedPaymentIntent.id,
+                  status: failedPaymentIntent.status,
+                  error: failedPaymentIntent.last_payment_error?.message,
+                }
+              } : {
+                stripe: {
+                  paymentIntentId: failedPaymentIntent.id,
+                  status: failedPaymentIntent.status,
+                  error: failedPaymentIntent.last_payment_error?.message,
+                }
+              }
+            });
+            
+            log(`Stripe payment failed for order #${orderId}: ${failedPaymentIntent.last_payment_error?.message}`, 'payments');
+          }
+        }
+        break;
+        
+      default:
+        log(`Unhandled Stripe event type: ${event.type}`, 'payments');
+    }
+    
+    res.json({ received: true });
+  } catch (error) {
+    log(`Stripe webhook error: ${error}`, 'payments');
+    res.status(400).json({ error: 'Webhook error' });
+  }
+});
+
+/**
+ * Get payment intent status
+ */
+router.get('/stripe/payment-intent/:paymentIntentId', async (req: Request, res: Response) => {
+  try {
+    const { paymentIntentId } = req.params;
+    
+    if (!paymentIntentId) {
+      return res.status(400).json({ error: 'Payment intent ID is required' });
+    }
+    
+    const paymentIntent = await getPaymentIntent(paymentIntentId);
+    
+    res.json({
+      success: true,
+      status: paymentIntent.status,
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    log(`Stripe get payment intent error: ${error}`, 'payments');
+    res.status(500).json({ error: 'Failed to get Stripe payment intent status' });
   }
 });
 

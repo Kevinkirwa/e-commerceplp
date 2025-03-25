@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StripePaymentForm from "@/components/payments/StripePaymentForm";
 
 const checkoutSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
@@ -44,6 +45,9 @@ const Checkout: React.FC = () => {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<number | null>(null);
+  const [paymentProcessing, setPaymentProcessing] = useState<boolean>(false);
   
   // Fetch user details if authenticated
   const { data: userData } = useQuery<User>({
@@ -130,6 +134,80 @@ const Checkout: React.FC = () => {
       });
 
       const order = await response.json();
+      setOrderId(order.id);
+      
+      // Process payment based on selected method
+      if (data.paymentMethod === "card") {
+        try {
+          // Get Stripe payment intent
+          const stripeResponse = await apiRequest("POST", "/api/payments/stripe/create-payment-intent", {
+            amount: totalPrice,
+            orderId: order.id
+          });
+          
+          const stripeData = await stripeResponse.json();
+          setStripeClientSecret(stripeData.clientSecret);
+          setPaymentProcessing(true);
+          
+          // Don't redirect yet, wait for Stripe payment to complete
+          return;
+        } catch (error) {
+          toast({
+            title: "Payment initialization failed",
+            description: error instanceof Error ? error.message : "Failed to initialize Stripe payment",
+            variant: "destructive",
+          });
+          
+          // If payment initialization fails, cancel the order
+          // You'd need a cancel order endpoint for this in production
+          // await apiRequest("PUT", `/api/orders/${order.id}`, { status: "cancelled" });
+          
+          setIsSubmitting(false);
+          return;
+        }
+      } else if (data.paymentMethod === "mpesa") {
+        // Handle M-Pesa payment initialization
+        try {
+          await apiRequest("POST", "/api/payments/mpesa/stkpush", {
+            phoneNumber: data.mpesaPhone,
+            amount: totalPrice,
+            orderId: order.id
+          });
+          
+          toast({
+            title: "M-Pesa payment initiated",
+            description: "Please check your phone for the STK push and enter your PIN to complete payment",
+          });
+        } catch (error) {
+          toast({
+            title: "M-Pesa payment failed",
+            description: error instanceof Error ? error.message : "Failed to initiate M-Pesa payment",
+            variant: "destructive",
+          });
+        }
+      } else if (data.paymentMethod === "paypal") {
+        // Handle PayPal payment initialization
+        try {
+          const paypalResponse = await apiRequest("POST", "/api/payments/paypal/create-order", {
+            amount: totalPrice,
+            orderId: order.id
+          });
+          
+          const paypalData = await paypalResponse.json();
+          
+          // Redirect to PayPal for payment
+          if (paypalData.approvalUrl) {
+            window.location.href = paypalData.approvalUrl;
+            return;
+          }
+        } catch (error) {
+          toast({
+            title: "PayPal payment failed",
+            description: error instanceof Error ? error.message : "Failed to initiate PayPal payment",
+            variant: "destructive",
+          });
+        }
+      }
 
       // Clear cart after successful order
       clearCart();
@@ -149,7 +227,9 @@ const Checkout: React.FC = () => {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      if (!paymentProcessing) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -161,6 +241,57 @@ const Checkout: React.FC = () => {
           <h2 className="text-xl font-medium mb-4">Your cart is empty</h2>
           <p className="text-gray-600 mb-6">Add some items to your cart before proceeding to checkout.</p>
           <Button onClick={() => setLocation("/products")}>Browse Products</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle successful Stripe payment
+  const handleStripePaymentSuccess = () => {
+    // Clear cart
+    clearCart();
+    
+    // Show success message
+    toast({
+      title: "Payment successful!",
+      description: `Your order #${orderId} has been placed and payment has been processed.`,
+    });
+    
+    // Reset loading states
+    setIsSubmitting(false);
+    setPaymentProcessing(false);
+    
+    // Redirect to order confirmation
+    setLocation(`/user/orders`);
+  };
+  
+  // Handle Stripe payment error
+  const handleStripePaymentError = (message: string) => {
+    toast({
+      title: "Payment failed",
+      description: message,
+      variant: "destructive",
+    });
+    
+    // Reset loading states
+    setIsSubmitting(false);
+    setPaymentProcessing(false);
+  };
+
+  // If we have a Stripe client secret, show the payment form
+  if (paymentProcessing && stripeClientSecret) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6">Complete Your Payment</h1>
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-6">Enter Your Card Details</h2>
+            <StripePaymentForm 
+              clientSecret={stripeClientSecret}
+              onPaymentSuccess={handleStripePaymentSuccess}
+              onPaymentError={handleStripePaymentError}
+            />
+          </div>
         </div>
       </div>
     );
