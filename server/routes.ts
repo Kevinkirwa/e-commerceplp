@@ -713,12 +713,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==== Payment Routes ====
   app.use("/api/payments", paymentRoutes);
   
-  // Handle 404 errors
-app.use((req, res, next) => {
-  if (!req.route) {
-    return res.status(404).json({ message: 'Route not found' });
+  // Serve static files from the client/dist directory
+app.use(express.static('client/dist'));
+
+// Handle client-side routing
+app.get('*', (req, res) => {
+  // Exclude API routes from client-side routing
+  if (!req.path.startsWith('/api')) {
+    res.sendFile('index.html', { root: 'client/dist' });
+  } else {
+    res.status(404).json({ message: 'API route not found' });
   }
-  next();
 });
 
 // Error handling middleware
