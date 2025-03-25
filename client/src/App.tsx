@@ -19,6 +19,7 @@ import VendorOrders from "@/pages/vendor/orders";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminVendors from "@/pages/admin/vendors";
 import AdminProducts from "@/pages/admin/products";
+import AdminCategories from "@/pages/admin/categories";
 import { useAuth } from "@/lib/context/AuthContext";
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
@@ -117,6 +118,14 @@ function Router() {
         {() => (
           <ProtectedRoute roles={["admin"]}>
             <AdminProducts />
+          </ProtectedRoute>
+        )}
+      </Route>
+      
+      <Route path="/admin/categories">
+        {() => (
+          <ProtectedRoute roles={["admin"]}>
+            <AdminCategories />
           </ProtectedRoute>
         )}
       </Route>

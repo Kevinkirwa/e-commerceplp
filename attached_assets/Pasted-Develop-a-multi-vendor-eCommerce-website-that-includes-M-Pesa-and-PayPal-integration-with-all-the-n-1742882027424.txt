@@ -1,0 +1,98 @@
+Develop a multi-vendor eCommerce website that includes M-Pesa and PayPal integration, with all the necessary features for a modern eCommerce platform. The website should be built using React + Vite for the frontend, Node.js + Express for the backend, and MongoDB Atlas for database management. The platform should support both users and vendors, with an admin panel for management.
+
+Core Features:
+1. User Features:
+User registration & login (OAuth, email/password, Google & Facebook login)
+
+Browse products by category, brand, and vendor
+
+Product search with filters (price, rating, stock status, etc.)
+
+Product details page with images, descriptions, reviews, and ratings
+
+Add to cart, remove from cart, and update cart quantities
+
+Checkout process with M-Pesa (STK Push, Paybill, Till Number) and PayPal integration
+
+Order tracking & history
+
+Wishlist & saved items
+
+Loyalty program with reward points
+
+2. Vendor Features:
+Vendor registration & verification
+
+Vendor dashboard with analytics (sales, revenue, order management)
+
+Add, update, and remove products
+
+Manage orders (pending, processing, shipped, delivered)
+
+Customer reviews & ratings management
+
+Payouts to vendors via M-Pesa or PayPal
+
+3. Admin Features:
+Admin dashboard with total sales, registered users, and vendor activity
+
+Vendor approval/rejection system
+
+Manage products, categories, and brands
+
+Order management with status updates
+
+Payment verification & dispute resolution
+
+Sitewide promotions & discount management
+
+4. Payment Integrations:
+M-Pesa Integration:
+
+STK Push for seamless mobile payments
+
+Lipa Na M-Pesa (Paybill & Till Number)
+
+Automated payment verification & refund handling
+
+PayPal Integration:
+
+PayPal Express Checkout
+
+Multi-currency support
+
+5. Security & Performance:
+JWT authentication & role-based access control (User, Vendor, Admin)
+
+Data validation & input sanitization
+
+Secure password hashing with bcrypt
+
+Optimized frontend with lazy loading for performance
+
+Cloud storage for product images (e.g., Firebase Storage, Cloudinary)
+
+6. Additional Features:
+AI-powered product recommendations
+
+Live chat support & AI chatbot for customer queries
+
+Multi-language & multi-currency support
+
+Affiliate marketing & referral program
+
+Mobile-responsive design with PWA support
+
+Tech Stack:
+
+Frontend: React + Vite, Tailwind CSS
+
+Backend: Node.js, Express
+
+Database: MongoDB Atlas
+
+Authentication: JWT, OAuth
+
+Storage: Firebase Storage / Cloudinary
+
+Payment Gateways: M-Pesa API, PayPal API
