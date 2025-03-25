@@ -1,6 +1,19 @@
+
 {
   "variant": "professional",
   "primary": "hsl(222.2 47.4% 11.2%)",
-  "appearance": "light",
-  "radius": 0.5
+  "appearance": "dark",
+  "radius": 0.75,
+  "colors": {
+    "background": "hsl(222.2 84% 4.9%)",
+    "foreground": "hsl(210 40% 98%)",
+    "card": "hsl(222.2 84% 4.9%)",
+    "popover": "hsl(222.2 84% 4.9%)",
+    "primary": "hsl(210 40% 98%)",
+    "secondary": "hsl(217.2 32.6% 17.5%)",
+    "muted": "hsl(217.2 32.6% 17.5%)",
+    "accent": "hsl(217.2 32.6% 17.5%)",
+    "destructive": "hsl(0 62.8% 30.6%)",
+    "border": "hsl(217.2 32.6% 17.5%)"
+  }
 }
