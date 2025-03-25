@@ -16,6 +16,8 @@ import UserWishlist from "@/pages/user/wishlist";
 import VendorDashboard from "@/pages/vendor/dashboard";
 import VendorProducts from "@/pages/vendor/products";
 import VendorOrders from "@/pages/vendor/orders";
+import VendorRegistration from "@/pages/vendor/register";
+import VendorPendingApproval from "@/pages/vendor/pending-approval";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminVendors from "@/pages/admin/vendors";
 import AdminProducts from "@/pages/admin/products";
@@ -98,6 +100,14 @@ function Router() {
           </ProtectedRoute>
         )}
       </Route>
+      <Route path="/vendor/register">
+        {() => (
+          <ProtectedRoute roles={["customer", "admin"]}>
+            <VendorRegistration />
+          </ProtectedRoute>
+        )}
+      </Route>
+      <Route path="/vendor/pending-approval" component={VendorPendingApproval} />
       
       {/* Admin Routes */}
       <Route path="/admin/dashboard">
