@@ -10,6 +10,12 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import paymentRoutes from "./payments";
+import { 
+  getPersonalizedRecommendations, 
+  getTrendingProducts, 
+  getRelatedProducts, 
+  getYouMightAlsoLike 
+} from './services/recommendations';
 
 // Add user object to Request type
 declare global {
