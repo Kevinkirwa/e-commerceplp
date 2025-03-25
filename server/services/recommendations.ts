@@ -1,102 +1,41 @@
-import { storage } from '../storage';
-import { Product } from '@shared/schema';
+import { storage } from "../storage";
+import type { Product, User } from "@shared/schema";
+import { Configuration, OpenAIApi } from "openai";
 
-/**
- * Get personalized product recommendations for a user
- * @param userId - The ID of the user to get recommendations for
- * @param limit - The maximum number of recommendations to return
- * @returns An array of recommended products
- */
+const openai = new OpenAIApi(new Configuration({
+  apiKey: process.env.OPENAI_API_KEY
+}));
+
 export async function getPersonalizedRecommendations(userId: number, limit: number = 6): Promise<Product[]> {
   try {
-    // Get user purchase history (completed orders)
-    const userOrders = await storage.getOrders(userId);
-    const completedOrders = userOrders.filter(order => order.status === 'completed' || order.status === 'delivered');
-    
-    // If user has no purchase history, return trending products instead
-    if (completedOrders.length === 0) {
-      return getTrendingProducts(limit);
-    }
-    
-    // Extract ordered items from completed orders
-    const orderItemPromises = completedOrders.map(order => storage.getOrderItems(order.id));
-    const allOrderItems = await Promise.all(orderItemPromises);
-    const orderItems = allOrderItems.flat();
-    
-    // Get product details for ordered items
-    const productIds = [...new Set(orderItems.map(item => item.productId))];
-    const purchasedProducts = await Promise.all(
-      productIds.map(id => storage.getProduct(id))
-    );
-    
-    // Extract categories from purchased products
-    const purchasedCategories = [...new Set(
-      purchasedProducts
-        .filter(Boolean)
-        .map(product => product?.categoryId)
-    )];
-    
-    // Get related products from the same categories
-    let recommendations: Product[] = [];
-    for (const categoryId of purchasedCategories) {
-      if (categoryId) {
-        const categoryProducts = await storage.getProducts({ categoryId });
-        recommendations = [...recommendations, ...categoryProducts];
-      }
-    }
-    
-    // Filter out products the user has already purchased
-    recommendations = recommendations.filter(
-      product => !productIds.includes(product.id)
-    );
-    
-    // Get user's wishlist items for boosting
-    const userWishlist = await storage.getUserWishlist(userId);
-    const wishlistProductIds = userWishlist.map(item => item.productId);
-    
-    // Boost products from the same vendor as wishlist items
-    const wishlistProducts = await Promise.all(
-      wishlistProductIds.map(id => storage.getProduct(id))
-    );
-    const wishlistVendorIds = [...new Set(
-      wishlistProducts
-        .filter(Boolean)
-        .map(product => product?.vendorId)
-    )];
-    
-    // Simple scoring algorithm:
-    // - Base score for each product
-    // - Boost products from vendors the user has shown interest in
-    // - Boost products with higher ratings
-    // - Boost products that are on sale
-    const scoredRecommendations = recommendations.map(product => {
-      let score = 10; // Base score
-      
-      // Boost products from vendors in wishlist
-      if (wishlistVendorIds.includes(product.vendorId)) {
-        score += 5;
-      }
-      
-      // Boost products with high ratings
-      if (product.rating > 4) {
-        score += product.rating;
-      }
-      
-      // Boost products on sale
-      if (product.salePrice && product.salePrice < product.price) {
-        score += 3;
-      }
-      
-      return { product, score };
+    // Get user's order history and preferences
+    const orders = await storage.getOrders(userId);
+    const wishlist = await storage.getUserWishlist(userId);
+    const user = await storage.getUser(userId);
+
+    // Generate personalized recommendations using AI
+    const prompt = `Based on user preferences:
+      - Previous orders: ${orders.map(o => o.id).join(', ')}
+      - Wishlist items: ${wishlist.map(w => w.productId).join(', ')}
+      - User profile: ${JSON.stringify(user)}
+      Suggest product categories and features they might like.`;
+
+    const completion = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt,
+      max_tokens: 100
     });
-    
-    // Sort by score and return top recommendations
-    return scoredRecommendations
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map(item => item.product);
+
+    const suggestions = completion.data.choices[0].text?.split('\n') || [];
+
+    // Get recommended products based on AI suggestions
+    const recommendedProducts = await storage.getProducts({
+      categoryIds: suggestions.map(s => parseInt(s))
+    });
+
+    return recommendedProducts.slice(0, limit);
   } catch (error) {
-    console.error('Error generating personalized recommendations:', error);
+    console.error('Error generating recommendations:', error);
     return getTrendingProducts(limit);
   }
 }
